@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Markdown 编辑器</title>
+		<script src="marked.min.js"></script>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family:
+					-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+					sans-serif;
+				background: #f5f5f5;
+				color: #111827;
+				min-height: 100vh;
+				padding: 40px 20px;
+			}
+
+			.container {
+				max-width: 1200px;
+				margin: 0 auto;
+			}
+
+			/* ===== 顶部标题区 ===== */
+			.header {
+				display: flex;
+				align-items: flex-start;
+				justify-content: space-between;
+				margin-bottom: 24px;
+			}
+
+			.header-left h1 {
+				font-size: 28px;
+				font-weight: 700;
+				color: #111827;
+				margin-bottom: 6px;
+			}
+
+			.header-left p {
+				font-size: 14px;
+				color: #6b7280;
+			}
+
+			/* ===== 工具栏 ===== */
+			.toolbar {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			.toolbar-btn {
+				height: 40px;
+				padding: 0 16px;
+				border: 1px solid #e5e7eb;
+				border-radius: 8px;
+				background: #fff;
+				color: #374151;
+				font-size: 14px;
+				font-weight: 500;
+				cursor: pointer;
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				transition: all 0.15s;
+				white-space: nowrap;
+			}
+
+			.toolbar-btn:hover {
+				background: #f9fafb;
+				border-color: #d1d5db;
+			}
+
+			.toolbar-btn.active {
+				background: #111827;
+				color: #fff;
+				border-color: #111827;
+			}
+
+			.toolbar-btn.active:hover {
+				background: #1f2937;
+			}
+
+			.toolbar-btn.primary {
+				background: #111827;
+				color: #fff;
+				border-color: #111827;
+			}
+
+			.toolbar-btn.primary:hover {
+				background: #1f2937;
+			}
+
+			.toolbar-btn.primary:disabled {
+				background: #9ca3af;
+				border-color: #9ca3af;
+				cursor: not-allowed;
+			}
+
+			.toolbar-btn svg {
+				width: 16px;
+				height: 16px;
+				flex-shrink: 0;
+			}
+
+			#fileInput {
+				display: none;
+			}
+
+			/* ===== 内容区 ===== */
+			.content-card {
+				background: #fff;
+				border: 1px solid #e5e7eb;
+				border-radius: 12px;
+				overflow: hidden;
+				display: flex;
+				height: 80vh;
+			}
+
+			/* 编辑面板 */
+			.editor-panel {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				min-width: 0;
+				border-right: 1px solid #e5e7eb;
+			}
+
+			.editor-panel.hidden {
+				display: none;
+			}
+
+			.panel-header {
+				height: 44px;
+				padding: 0 20px;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				border-bottom: 1px solid #e5e7eb;
+				font-size: 13px;
+				font-weight: 500;
+				color: #6b7280;
+				flex-shrink: 0;
+				background: #fafafa;
+			}
+
+			.panel-header svg {
+				width: 14px;
+				height: 14px;
+				color: #9ca3af;
+			}
+
+			#mdEditor {
+				flex: 1;
+				width: 100%;
+				border: none;
+				outline: none;
+				resize: none;
+				padding: 24px;
+				font-family:
+					"SFMono-Regular", Consolas, "Liberation Mono", Menlo, "Courier New",
+					monospace;
+				font-size: 14px;
+				line-height: 1.8;
+				color: #111827;
+				background: #fff;
+				tab-size: 2;
+			}
+
+			#mdEditor::placeholder {
+				color: #d1d5db;
+			}
+
+			/* 预览面板 */
+			.preview-panel {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				min-width: 0;
+			}
+
+			.preview-content {
+				flex: 1;
+				overflow-y: auto;
+				padding: 24px;
+				font-size: 15px;
+				line-height: 1.8;
+				color: #111827;
+			}
+
+			/* ===== 预览区 Markdown 渲染样式 ===== */
+			.preview-content h1,
+			.preview-content h2,
+			.preview-content h3,
+			.preview-content h4,
+			.preview-content h5,
+			.preview-content h6 {
+				color: #111827;
+				margin-top: 24px;
+				margin-bottom: 12px;
+				font-weight: 700;
+			}
+			.preview-content h1 {
+				font-size: 2em;
+				border-bottom: 1px solid #e5e7eb;
+				padding-bottom: 8px;
+			}
+			.preview-content h2 {
+				font-size: 1.5em;
+				border-bottom: 1px solid #e5e7eb;
+				padding-bottom: 6px;
+			}
+			.preview-content h3 {
+				font-size: 1.25em;
+			}
+			.preview-content p {
+				margin-bottom: 16px;
+			}
+			.preview-content a {
+				color: #2563eb;
+				text-decoration: none;
+			}
+			.preview-content strong {
+				font-weight: 700;
+			}
+			.preview-content code {
+				background: #f3f4f6;
+				padding: 2px 6px;
+				border-radius: 4px;
+				font-size: 0.9em;
+				font-family: "SFMono-Regular", Consolas, monospace;
+				color: #e11d48;
+			}
+			.preview-content pre {
+				background: #1f2937;
+				color: #e5e7eb;
+				padding: 16px 20px;
+				border-radius: 8px;
+				overflow-x: auto;
+				margin-bottom: 16px;
+				line-height: 1.6;
+			}
+			.preview-content pre code {
+				background: none;
+				padding: 0;
+				color: inherit;
+				font-size: 13px;
+			}
+			.preview-content blockquote {
+				border-left: 4px solid #e5e7eb;
+				padding: 12px 20px;
+				margin: 16px 0;
+				color: #6b7280;
+				background: #f9fafb;
+				border-radius: 0 8px 8px 0;
+			}
+			.preview-content ul,
+			.preview-content ol {
+				padding-left: 2em;
+				margin-bottom: 16px;
+			}
+			.preview-content li {
+				margin: 6px 0;
+			}
+			.preview-content table {
+				border-collapse: collapse;
+				width: 100%;
+				margin: 16px 0;
+			}
+			.preview-content th,
+			.preview-content td {
+				border: 1px solid #e5e7eb;
+				padding: 10px 14px;
+				text-align: left;
+			}
+			.preview-content th {
+				background: #f9fafb;
+				font-weight: 600;
+			}
+			.preview-content hr {
+				border: none;
+				border-top: 1px solid #e5e7eb;
+				margin: 24px 0;
+			}
+			.preview-content img {
+				max-width: 100%;
+				border-radius: 8px;
+			}
+
+			/* 空状态 */
+			.preview-empty {
+				color: #d1d5db;
+				font-size: 14px;
+			}
+
+			/* ===== 状态提示 ===== */
+			.status-toast {
+				position: fixed;
+				bottom: 32px;
+				left: 50%;
+				transform: translateX(-50%) translateY(80px);
+				background: #111827;
+				color: #fff;
+				padding: 10px 20px;
+				border-radius: 8px;
+				font-size: 13px;
+				opacity: 0;
+				transition: all 0.3s;
+				pointer-events: none;
+				z-index: 100;
+			}
+
+			.status-toast.show {
+				opacity: 1;
+				transform: translateX(-50%) translateY(0);
+			}
+
+			.status-toast.error {
+				background: #ef4444;
+			}
+			.status-toast.success {
+				background: #10b981;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<!-- 顶部 -->
+			<div class="header">
+				<div class="header-left">
+					<h1>编辑器</h1>
+					<p>在下方输入 Markdown 内容进行实时预览</p>
+				</div>
+				<div class="toolbar">
+					<button class="toolbar-btn active" id="btnSplit">
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2">
+							<rect x="3" y="3" width="18" height="18" rx="2" />
+							<line x1="12" y1="3" x2="12" y2="21" />
+						</svg>
+						分屏
+					</button>
+					<button class="toolbar-btn" id="btnPreview">
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2">
+							<circle cx="12" cy="12" r="3" />
+							<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+						</svg>
+						预览
+					</button>
+					<button class="toolbar-btn" id="btnUpload">
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2">
+							<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+							<polyline points="17 8 12 3 7 8" />
+							<line x1="12" y1="3" x2="12" y2="15" />
+						</svg>
+						上传
+					</button>
+					<button class="toolbar-btn primary" id="btnGenerate">
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2">
+							<rect x="3" y="3" width="18" height="18" rx="2" />
+							<circle cx="8.5" cy="8.5" r="1.5" />
+							<polyline points="21 15 16 10 5 21" />
+						</svg>
+						生成图片
+					</button>
+				</div>
+			</div>
+
+			<!-- 内容区 -->
+			<div class="content-card" id="contentCard">
+				<div class="editor-panel" id="editorPanel">
+					<div class="panel-header">
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2">
+							<polyline points="16 18 22 12 16 6" />
+							<polyline points="8 6 2 12 8 18" />
+						</svg>
+						Markdown 源码
+					</div>
+					<textarea
+						id="mdEditor"
+						placeholder="在此输入 Markdown 内容..."></textarea>
+				</div>
+				<div class="preview-panel" id="previewPanel">
+					<div class="panel-header">
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2">
+							<circle cx="12" cy="12" r="3" />
+							<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+						</svg>
+						实时预览
+					</div>
+					<div class="preview-content" id="previewArea">
+						<p class="preview-empty">预览区域 — 输入 Markdown 后实时渲染</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<input type="file" id="fileInput" accept=".md,.markdown,.txt" />
+		<div class="status-toast" id="toast"></div>
+
+		<script>
+			const btnSplit = document.getElementById("btnSplit");
+			const btnPreview = document.getElementById("btnPreview");
+			const btnUpload = document.getElementById("btnUpload");
+			const btnGenerate = document.getElementById("btnGenerate");
+			const fileInput = document.getElementById("fileInput");
+			const editorPanel = document.getElementById("editorPanel");
+			const previewPanel = document.getElementById("previewPanel");
+			const mdEditor = document.getElementById("mdEditor");
+			const previewArea = document.getElementById("previewArea");
+			const toast = document.getElementById("toast");
+
+			let mode = "split";
+			let toastTimer = null;
+			let uploadedFileName = "";
+
+			// ===== 模式切换 =====
+			function setMode(m) {
+				mode = m;
+				btnSplit.classList.toggle("active", m === "split");
+				btnPreview.classList.toggle("active", m === "preview");
+				if (m === "split") {
+					editorPanel.classList.remove("hidden");
+					editorPanel.style.borderRight = "1px solid #e5e7eb";
+				} else {
+					editorPanel.classList.add("hidden");
+				}
+				updatePreview();
+			}
+
+			btnSplit.addEventListener("click", () => setMode("split"));
+			btnPreview.addEventListener("click", () => setMode("preview"));
+
+			// ===== 实时预览 =====
+			let previewTimer = null;
+
+			function updatePreview() {
+				const md = mdEditor.value;
+				if (md.trim()) {
+					previewArea.innerHTML = marked.parse(md);
+				} else {
+					previewArea.innerHTML =
+						'<p class="preview-empty">预览区域 — 输入 Markdown 后实时渲染</p>';
+				}
+			}
+
+			mdEditor.addEventListener("input", () => {
+				clearTimeout(previewTimer);
+				previewTimer = setTimeout(updatePreview, 150);
+				uploadedFileName = "";
+			});
+
+			// ===== 上传 =====
+			btnUpload.addEventListener("click", () => fileInput.click());
+
+			fileInput.addEventListener("change", () => {
+				const file = fileInput.files[0];
+				if (!file) return;
+				if (!file.name.match(/\.(md|markdown|txt)$/i)) {
+					showToast("仅支持 .md / .markdown / .txt 文件", "error");
+					fileInput.value = "";
+					return;
+				}
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					mdEditor.value = e.target.result;
+					updatePreview();
+					uploadedFileName = file.name.replace(/\.(md|markdown|txt)$/i, "");
+					showToast("已加载: " + file.name, "success");
+				};
+				reader.onerror = () => showToast("文件读取失败", "error");
+				reader.readAsText(file);
+				fileInput.value = "";
+			});
+
+			// ===== 生成图片 =====
+			btnGenerate.addEventListener("click", async () => {
+				const text = mdEditor.value.trim();
+				if (!text) {
+					showToast("请先输入 Markdown 内容", "error");
+					return;
+				}
+
+				// 确定文件名
+				let name = uploadedFileName;
+				if (!name) {
+					name = prompt("请输入文件名称：");
+					if (!name || !name.trim()) {
+						return;
+					}
+					name = name.trim();
+				}
+
+				showToast("正在生成图片...");
+				btnGenerate.disabled = true;
+
+				try {
+					const formData = new FormData();
+					formData.append("text", text);
+					formData.append("theme", "light");
+					formData.append("width", "800");
+					formData.append("name", name);
+
+					const res = await fetch("/convert", {
+						method: "POST",
+						body: formData,
+					});
+					const data = await res.json();
+					if (!res.ok) {
+						throw new Error(data.error || "转换失败");
+					}
+
+					showToast("已保存: " + data.filename, "success");
+				} catch (err) {
+					showToast(err.message, "error");
+				} finally {
+					btnGenerate.disabled = false;
+				}
+			});
+
+			// ===== Toast 提示 =====
+			function showToast(msg, type) {
+				clearTimeout(toastTimer);
+				toast.textContent = msg;
+				toast.className = "status-toast show" + (type ? " " + type : "");
+				toastTimer = setTimeout(() => {
+					toast.classList.remove("show");
+				}, 3000);
+			}
+
+			// ===== Tab 键支持 =====
+			mdEditor.addEventListener("keydown", (e) => {
+				if (e.key === "Tab") {
+					e.preventDefault();
+					const start = mdEditor.selectionStart;
+					const end = mdEditor.selectionEnd;
+					mdEditor.value =
+						mdEditor.value.substring(0, start) +
+						"  " +
+						mdEditor.value.substring(end);
+					mdEditor.selectionStart = mdEditor.selectionEnd = start + 2;
+					updatePreview();
+				}
+			});
+
+			// ===== 拖拽文件 =====
+			editorPanel.addEventListener("dragover", (e) => e.preventDefault());
+			editorPanel.addEventListener("drop", (e) => {
+				e.preventDefault();
+				const file = e.dataTransfer.files[0];
+				if (!file) return;
+				if (!file.name.match(/\.(md|markdown|txt)$/i)) {
+					showToast("仅支持 .md / .markdown / .txt 文件", "error");
+					return;
+				}
+				const reader = new FileReader();
+				reader.onload = (ev) => {
+					mdEditor.value = ev.target.result;
+					updatePreview();
+					uploadedFileName = file.name.replace(/\.(md|markdown|txt)$/i, "");
+					showToast("已加载: " + file.name, "success");
+				};
+				reader.readAsText(file);
+			});
+		</script>
+	</body>
+</html>
