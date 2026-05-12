@@ -15,7 +15,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.0.9";
+let CURRENT_VERSION = "1.1.0";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {
@@ -264,15 +264,16 @@ li{margin:4px 0}`;
 		// 保存到 output 文件夹
 		const saveDir = path.join(WORK_DIR, "output");
 
-		// 文件名：时间戳（纯 ASCII，避免 Windows 编码问题）
-		const now = new Date();
-		const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
-		const filename = `${timestamp}.png`;
+			// 文件名：年月日_用户指定名称.png
+			const now = new Date();
+			const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+			const safeName = baseName.replace(/[\/:*?"<>|]/g, "_");
+			const filename = `${dateStr}_${safeName}.png`;
 		const savePath = path.join(saveDir, filename);
 		fs.writeFileSync(savePath, screenshot);
 
 		// 返回保存结果（displayName 用于前端展示，filename 用于下载）
-		res.json({ success: true, filename, displayName: baseName });
+		res.json({ success: true, filename, displayName: filename });
 	} catch (err) {
 		console.error("转换失败:", err.message);
 		if (err.message.includes("Could not find browser") || err.message.includes("closed unexpectedly")) {

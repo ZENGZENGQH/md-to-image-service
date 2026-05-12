@@ -301,18 +301,20 @@
 			/* ===== 状态提示 ===== */
 			.status-toast {
 				position: fixed;
-				bottom: 32px;
+				top: 24px;
 				left: 50%;
-				transform: translateX(-50%) translateY(80px);
+				transform: translateX(-50%) translateY(-40px);
 				background: #111827;
 				color: #fff;
-				padding: 10px 20px;
-				border-radius: 8px;
-				font-size: 13px;
+				padding: 14px 28px;
+				border-radius: 10px;
+				font-size: 15px;
+				font-weight: 500;
 				opacity: 0;
-				transition: all 0.3s;
+				transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 				pointer-events: none;
 				z-index: 100;
+				box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 			}
 
 			.status-toast.show {
@@ -638,17 +640,9 @@
 						throw new Error(data.error || "转换失败");
 					}
 
-					// 显示下载链接
-					const downloadUrl = "/download/" + data.filename;
-					const displayLabel = data.displayName || data.filename;
-					toast.innerHTML =
-						'已保存: ' + displayLabel +
-						'　<a href="' + downloadUrl + '" download style="color:#60a5fa;text-decoration:underline;" id="toastDownload">点击下载</a>';
-					toast.className = "status-toast show success";
-					clearTimeout(toastTimer);
-					toastTimer = setTimeout(() => {
-						toast.classList.remove("show");
-					}, 10000);
+					// 显示保存结果
+					const displayName = data.displayName || data.filename;
+					showToast("已保存至 output/" + displayName, "success");
 				} catch (err) {
 					showToast(err.message, "error");
 				} finally {
