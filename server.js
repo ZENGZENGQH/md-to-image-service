@@ -39,9 +39,10 @@ const BROWSER_PATH = findBrowserPath();
 	if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 });
 
-// multer 配置：文件暂存至 uploads/，仅允许 md/txt 文件
+// multer 配置：文件暂存至 uploads/，仅允许 md/txt 文件，限制 20MB
 const upload = multer({
 	dest: path.join(WORK_DIR, "uploads"),
+	limits: { fileSize: 20 * 1024 * 1024 },
 	fileFilter: (_req, file, cb) => {
 		if (/\.(md|markdown|txt)$/i.test(file.originalname)) {
 			cb(null, true);
@@ -55,8 +56,12 @@ const upload = multer({
 app.use(express.static(path.join(WORK_DIR, "public")));
 app.use(express.json({ limit: "10mb" }));
 
-// 版本检测接口
-app.get("/api/version", async (_req, res) => {
+// 版本状态缓存
+let latestVersion = CURRENT_VERSION;
+let updateUrl = "";
+
+// 查询最新版本（启动时 + 每 30 分钟刷新）
+async function fetchLatestVersion() {
 	try {
 		const resp = await fetch(
 			`https://api.github.com/repos/${REPO}/releases/latest`,
@@ -65,19 +70,40 @@ app.get("/api/version", async (_req, res) => {
 				signal: AbortSignal.timeout(5000),
 			},
 		);
-		if (!resp.ok) throw new Error(`GitHub API ${resp.status}`);
+		if (!resp.ok) return;
 		const data = await resp.json();
-		const latest = (data.tag_name || "").replace(/^v/, "");
-		res.json({
-			current: CURRENT_VERSION,
-			latest,
-			hasUpdate: latest !== CURRENT_VERSION,
-			url: data.html_url || `https://github.com/${REPO}/releases/latest`,
-		});
+		latestVersion = (data.tag_name || "").replace(/^v/, "");
+		updateUrl = data.html_url || `https://github.com/${REPO}/releases/latest`;
 	} catch {
-		// 网络不可达时只返回当前版本，不影响正常使用
-		res.json({ current: CURRENT_VERSION, latest: CURRENT_VERSION, hasUpdate: false, url: "" });
+		// 网络不可达时保持当前值
 	}
+}
+
+// 版本检测接口
+app.get("/api/version", (_req, res) => {
+	res.json({
+		current: CURRENT_VERSION,
+		latest: latestVersion,
+		hasUpdate: latestVersion !== CURRENT_VERSION,
+		url: updateUrl || `https://github.com/${REPO}/releases/latest`,
+	});
+});
+
+// 版本过旧拦截中间件：旧版本禁止使用核心功能
+app.use((req, res, next) => {
+	// 仅拦截业务接口，放行版本检测和静态资源
+	if (req.path === "/api/version" || !req.path.startsWith("/api/") && !req.path.startsWith("/convert") && !req.path.startsWith("/download")) {
+		return next();
+	}
+	if (latestVersion && latestVersion !== CURRENT_VERSION) {
+		return res.status(426).json({
+			error: "版本过旧，请更新至最新版本",
+			current: CURRENT_VERSION,
+			latest: latestVersion,
+			url: updateUrl,
+		});
+	}
+	next();
 });
 
 // 提交转换请求
@@ -196,7 +222,7 @@ li{margin:4px 0}`;
 		res.json({ success: true, filename, displayName: baseName });
 	} catch (err) {
 		console.error("转换失败:", err);
-		res.status(500).json({ error: `转换失败: ${err.message}` });
+		res.status(500).json({ error: "转换失败，请检查输入内容或稍后重试" });
 	} finally {
 		// 清理上传的临时文件
 		if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
@@ -207,7 +233,12 @@ li{margin:4px 0}`;
 
 // 下载生成的图片
 app.get("/download/:filename", (req, res) => {
-	const filePath = path.join(WORK_DIR, "output", req.params.filename);
+	const filename = path.basename(req.params.filename);
+	const filePath = path.join(WORK_DIR, "output", filename);
+	const outputDir = path.resolve(WORK_DIR, "output");
+	if (!filePath.startsWith(outputDir + path.sep) && filePath !== outputDir) {
+		return res.status(400).json({ error: "无效的文件名" });
+	}
 	if (!fs.existsSync(filePath)) {
 		return res.status(404).json({ error: "文件不存在" });
 	}
@@ -216,25 +247,15 @@ app.get("/download/:filename", (req, res) => {
 
 // 启动时检查最新版本
 async function checkUpdate() {
-	try {
-		const resp = await fetch(
-			`https://api.github.com/repos/${REPO}/releases/latest`,
-			{
-				headers: { "User-Agent": `md-to-image-service/${CURRENT_VERSION}` },
-				signal: AbortSignal.timeout(5000),
-			},
-		);
-		if (!resp.ok) return;
-		const data = await resp.json();
-		const latest = (data.tag_name || "").replace(/^v/, "");
-		if (latest && latest !== CURRENT_VERSION) {
-			console.log(`\n  ⚠ 发现新版本: v${latest} (当前: v${CURRENT_VERSION})`);
-			console.log(`  下载: ${data.html_url || `https://github.com/${REPO}/releases/latest`}`);
-		}
-	} catch {
-		// 网络不可达时静默忽略
+	await fetchLatestVersion();
+	if (latestVersion && latestVersion !== CURRENT_VERSION) {
+		console.log(`\n  ⚠ 发现新版本: v${latestVersion} (当前: v${CURRENT_VERSION})`);
+		console.log(`  下载: ${updateUrl || `https://github.com/${REPO}/releases/latest`}`);
 	}
 }
+
+// 每 30 分钟刷新一次最新版本
+setInterval(fetchLatestVersion, 30 * 60 * 1000).unref();
 
 app.listen(PORT, "127.0.0.1", () => {
 	console.log(`\n  MD 转图片服务已启动: http://localhost:${PORT}`);

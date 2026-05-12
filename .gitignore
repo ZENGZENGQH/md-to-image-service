@@ -4,3 +4,7 @@ output/
 .claude/
 *.png
 dist/
+.env
+.env.*
+*.pem
+*.key

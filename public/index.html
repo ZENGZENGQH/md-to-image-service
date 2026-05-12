@@ -327,52 +327,85 @@
 				background: #10b981;
 			}
 
-			/* ===== 更新提示横幅 ===== */
-			.update-banner {
+			/* ===== 强制更新遮罩 ===== */
+			.update-overlay {
 				display: none;
-				background: linear-gradient(135deg, #1e40af, #7c3aed);
-				color: #fff;
-				padding: 12px 20px;
-				margin-bottom: 20px;
-				border-radius: 10px;
-				font-size: 14px;
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.7);
+				z-index: 1000;
 				align-items: center;
-				justify-content: space-between;
-				gap: 12px;
+				justify-content: center;
 			}
-			.update-banner.show {
+			.update-overlay.show {
 				display: flex;
 			}
-			.update-banner a {
-				color: #93c5fd;
-				text-decoration: underline;
-				font-weight: 600;
+			.update-card {
+				background: #fff;
+				border-radius: 16px;
+				padding: 40px 48px;
+				max-width: 480px;
+				text-align: center;
+				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 			}
-			.update-banner a:hover {
-				color: #bfdbfe;
+			.update-card h2 {
+				font-size: 22px;
+				color: #111827;
+				margin-bottom: 12px;
 			}
-			.update-close {
-				background: none;
-				border: none;
+			.update-card p {
+				font-size: 15px;
+				color: #6b7280;
+				margin-bottom: 8px;
+				line-height: 1.6;
+			}
+			.update-card .version-info {
+				display: flex;
+				justify-content: center;
+				gap: 24px;
+				margin: 20px 0;
+				font-size: 14px;
+			}
+			.update-card .ver-item {
+				padding: 8px 16px;
+				border-radius: 8px;
+				background: #f3f4f6;
+			}
+			.update-card .ver-item.current {
+				background: #fef2f2;
+				color: #dc2626;
+			}
+			.update-card .ver-item.latest {
+				background: #f0fdf4;
+				color: #16a34a;
+			}
+			.update-card .ver-label {
+				font-size: 12px;
+				color: #9ca3af;
+				display: block;
+				margin-bottom: 2px;
+			}
+			.update-card .download-btn {
+				display: inline-block;
+				margin-top: 16px;
+				padding: 12px 32px;
+				background: linear-gradient(135deg, #1e40af, #7c3aed);
 				color: #fff;
-				font-size: 20px;
+				border: none;
+				border-radius: 8px;
+				font-size: 15px;
+				font-weight: 600;
 				cursor: pointer;
-				opacity: 0.7;
-				flex-shrink: 0;
-				line-height: 1;
+				text-decoration: none;
+				transition: opacity 0.15s;
 			}
-			.update-close:hover {
-				opacity: 1;
+			.update-card .download-btn:hover {
+				opacity: 0.9;
 			}
 		</style>
 	</head>
 	<body>
 		<div class="container">
-			<!-- 更新提示 -->
-			<div class="update-banner" id="updateBanner">
-				<span id="updateText"></span>
-				<button class="update-close" id="updateClose">&times;</button>
-			</div>
 			<!-- 顶部 -->
 			<div class="header">
 				<div class="header-left">
@@ -468,6 +501,23 @@
 
 		<input type="file" id="fileInput" accept=".md,.markdown,.txt" />
 		<div class="status-toast" id="toast"></div>
+		<div class="update-overlay" id="updateOverlay">
+			<div class="update-card">
+				<h2>发现新版本</h2>
+				<p>当前版本已停止支持，请更新至最新版本后使用</p>
+				<div class="version-info">
+					<div class="ver-item current">
+						<span class="ver-label">当前版本</span>
+						v<span id="currentVer"></span>
+					</div>
+					<div class="ver-item latest">
+						<span class="ver-label">最新版本</span>
+						v<span id="latestVer"></span>
+					</div>
+				</div>
+				<a class="download-btn" id="updateBtn" href="#" target="_blank">前往下载</a>
+			</div>
+		</div>
 
 		<script>
 			const btnSplit = document.getElementById("btnSplit");
@@ -577,6 +627,13 @@
 						body: formData,
 					});
 					const data = await res.json();
+					if (res.status === 426) {
+						document.getElementById("currentVer").textContent = data.current;
+						document.getElementById("latestVer").textContent = data.latest;
+						document.getElementById("updateBtn").href = data.url;
+						document.getElementById("updateOverlay").classList.add("show");
+						return;
+					}
 					if (!res.ok) {
 						throw new Error(data.error || "转换失败");
 					}
@@ -644,23 +701,19 @@
 				reader.readAsText(file);
 			});
 
-			// ===== 版本检测 =====
+			// ===== 版本检测（强制更新） =====
 			(async () => {
 				try {
 					const res = await fetch("/api/version");
 					const data = await res.json();
 					if (data.hasUpdate) {
-						const banner = document.getElementById("updateBanner");
-						document.getElementById("updateText").innerHTML =
-							"发现新版本 <strong>v" + data.latest + "</strong>（当前 v" + data.current + "）　" +
-							'<a href="' + data.url + '" target="_blank">前往下载</a>';
-						banner.classList.add("show");
-						document.getElementById("updateClose").addEventListener("click", () => {
-							banner.classList.remove("show");
-						});
+						document.getElementById("currentVer").textContent = data.current;
+						document.getElementById("latestVer").textContent = data.latest;
+						document.getElementById("updateBtn").href = data.url;
+						document.getElementById("updateOverlay").classList.add("show");
 					}
 				} catch {
-					// 静默失败，不影响正常使用
+					// 网络不可达时允许正常使用
 				}
 			})();
 		</script>
