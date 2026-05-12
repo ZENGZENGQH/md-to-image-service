@@ -15,7 +15,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.1.0";
+let CURRENT_VERSION = "1.1.1";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {
@@ -43,14 +43,14 @@ function findBrowserPath() {
 const BROWSER_PATH = findBrowserPath();
 
 // 确保 uploads 和 output 目录存在
-["uploads", "output"].forEach((dir) => {
+["output"].forEach((dir) => {
 	const dirPath = path.join(WORK_DIR, dir);
 	if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 });
 
 // multer 配置：文件暂存至 uploads/，仅允许 md/txt 文件，限制 20MB
 const upload = multer({
-	dest: path.join(WORK_DIR, "uploads"),
+	dest: require("os").tmpdir(),
 	limits: { fileSize: 20 * 1024 * 1024 },
 	fileFilter: (_req, file, cb) => {
 		if (/\.(md|markdown|txt)$/i.test(file.originalname)) {
