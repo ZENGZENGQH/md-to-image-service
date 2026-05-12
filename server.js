@@ -11,6 +11,11 @@ const PORT = 3000;
 // pkg 打包后 __dirname 指向虚拟快照（只读），可写目录需用 process.cwd()
 const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
+// 版本信息
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf-8"));
+const CURRENT_VERSION = pkg.version;
+const REPO = "ZENGZENGQH/md-to-image-service";
+
 // 自动检测系统 Chromium 浏览器路径（Chrome / Edge）
 function findBrowserPath() {
 	const candidates = [
@@ -49,6 +54,31 @@ const upload = multer({
 // 静态资源
 app.use(express.static(path.join(WORK_DIR, "public")));
 app.use(express.json({ limit: "10mb" }));
+
+// 版本检测接口
+app.get("/api/version", async (_req, res) => {
+	try {
+		const resp = await fetch(
+			`https://api.github.com/repos/${REPO}/releases/latest`,
+			{
+				headers: { "User-Agent": `md-to-image-service/${CURRENT_VERSION}` },
+				signal: AbortSignal.timeout(5000),
+			},
+		);
+		if (!resp.ok) throw new Error(`GitHub API ${resp.status}`);
+		const data = await resp.json();
+		const latest = (data.tag_name || "").replace(/^v/, "");
+		res.json({
+			current: CURRENT_VERSION,
+			latest,
+			hasUpdate: latest !== CURRENT_VERSION,
+			url: data.html_url || `https://github.com/${REPO}/releases/latest`,
+		});
+	} catch {
+		// 网络不可达时只返回当前版本，不影响正常使用
+		res.json({ current: CURRENT_VERSION, latest: CURRENT_VERSION, hasUpdate: false, url: "" });
+	}
+});
 
 // 提交转换请求
 app.post("/convert", upload.single("file"), async (req, res) => {
@@ -184,11 +214,36 @@ app.get("/download/:filename", (req, res) => {
 	res.download(filePath);
 });
 
+// 启动时检查最新版本
+async function checkUpdate() {
+	try {
+		const resp = await fetch(
+			`https://api.github.com/repos/${REPO}/releases/latest`,
+			{
+				headers: { "User-Agent": `md-to-image-service/${CURRENT_VERSION}` },
+				signal: AbortSignal.timeout(5000),
+			},
+		);
+		if (!resp.ok) return;
+		const data = await resp.json();
+		const latest = (data.tag_name || "").replace(/^v/, "");
+		if (latest && latest !== CURRENT_VERSION) {
+			console.log(`\n  ⚠ 发现新版本: v${latest} (当前: v${CURRENT_VERSION})`);
+			console.log(`  下载: ${data.html_url || `https://github.com/${REPO}/releases/latest`}`);
+		}
+	} catch {
+		// 网络不可达时静默忽略
+	}
+}
+
 app.listen(PORT, "127.0.0.1", () => {
 	console.log(`\n  MD 转图片服务已启动: http://localhost:${PORT}`);
+	console.log(`  当前版本: v${CURRENT_VERSION}`);
 	if (BROWSER_PATH) {
-		console.log(`  浏览器: ${BROWSER_PATH}\n`);
+		console.log(`  浏览器: ${BROWSER_PATH}`);
 	} else {
-		console.warn("  警告: 未检测到 Chrome/Edge，将尝试使用默认浏览器路径\n");
+		console.warn("  警告: 未检测到 Chrome/Edge，将尝试使用默认浏览器路径");
 	}
+	console.log();
+	checkUpdate();
 });

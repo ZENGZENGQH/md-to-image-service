@@ -326,10 +326,53 @@
 			.status-toast.success {
 				background: #10b981;
 			}
+
+			/* ===== 更新提示横幅 ===== */
+			.update-banner {
+				display: none;
+				background: linear-gradient(135deg, #1e40af, #7c3aed);
+				color: #fff;
+				padding: 12px 20px;
+				margin-bottom: 20px;
+				border-radius: 10px;
+				font-size: 14px;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+			}
+			.update-banner.show {
+				display: flex;
+			}
+			.update-banner a {
+				color: #93c5fd;
+				text-decoration: underline;
+				font-weight: 600;
+			}
+			.update-banner a:hover {
+				color: #bfdbfe;
+			}
+			.update-close {
+				background: none;
+				border: none;
+				color: #fff;
+				font-size: 20px;
+				cursor: pointer;
+				opacity: 0.7;
+				flex-shrink: 0;
+				line-height: 1;
+			}
+			.update-close:hover {
+				opacity: 1;
+			}
 		</style>
 	</head>
 	<body>
 		<div class="container">
+			<!-- 更新提示 -->
+			<div class="update-banner" id="updateBanner">
+				<span id="updateText"></span>
+				<button class="update-close" id="updateClose">&times;</button>
+			</div>
 			<!-- 顶部 -->
 			<div class="header">
 				<div class="header-left">
@@ -600,6 +643,26 @@
 				};
 				reader.readAsText(file);
 			});
+
+			// ===== 版本检测 =====
+			(async () => {
+				try {
+					const res = await fetch("/api/version");
+					const data = await res.json();
+					if (data.hasUpdate) {
+						const banner = document.getElementById("updateBanner");
+						document.getElementById("updateText").innerHTML =
+							"发现新版本 <strong>v" + data.latest + "</strong>（当前 v" + data.current + "）　" +
+							'<a href="' + data.url + '" target="_blank">前往下载</a>';
+						banner.classList.add("show");
+						document.getElementById("updateClose").addEventListener("click", () => {
+							banner.classList.remove("show");
+						});
+					}
+				} catch {
+					// 静默失败，不影响正常使用
+				}
+			})();
 		</script>
 	</body>
 </html>
