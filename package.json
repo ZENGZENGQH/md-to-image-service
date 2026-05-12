@@ -1,6 +1,6 @@
 {
   "name": "md-to-image-service",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "本地 Markdown 转图片 Web 工具",
   "main": "server.js",
   "bin": "server.js",

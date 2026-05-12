@@ -2,6 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const { marked } = require("marked");
 const puppeteer = require("puppeteer-core");
+const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
@@ -13,7 +14,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.0.7";
+let CURRENT_VERSION = "1.0.8";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {
@@ -67,6 +68,17 @@ app.use(express.json({ limit: "10mb" }));
 let latestVersion = CURRENT_VERSION;
 let updateUrl = "";
 
+// 语义化版本比较：a > b 返回 1，a < b 返回 -1，相等返回 0
+function compareVersions(a, b) {
+	const pa = a.split(".").map(Number);
+	const pb = b.split(".").map(Number);
+	for (let i = 0; i < 3; i++) {
+		if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+		if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+	}
+	return 0;
+}
+
 // 查询最新版本（启动时 + 每 30 分钟刷新）
 async function fetchLatestVersion() {
 	try {
@@ -91,7 +103,7 @@ app.get("/api/version", (_req, res) => {
 	res.json({
 		current: CURRENT_VERSION,
 		latest: latestVersion,
-		hasUpdate: latestVersion !== CURRENT_VERSION,
+		hasUpdate: compareVersions(latestVersion, CURRENT_VERSION) > 0,
 		url: updateUrl || `https://github.com/${REPO}/releases/latest`,
 	});
 });
@@ -102,7 +114,7 @@ app.use((req, res, next) => {
 	if (req.path === "/api/version" || !req.path.startsWith("/api/") && !req.path.startsWith("/convert") && !req.path.startsWith("/download")) {
 		return next();
 	}
-	if (latestVersion && latestVersion !== CURRENT_VERSION) {
+	if (latestVersion && compareVersions(latestVersion, CURRENT_VERSION) > 0) {
 		return res.status(426).json({
 			error: "版本过旧，请更新至最新版本",
 			current: CURRENT_VERSION,
@@ -120,6 +132,7 @@ app.post("/convert", upload.single("file"), async (req, res) => {
 	let mdContent = "";
 	let uploadedFilePath = null;
 	let baseName = "";
+	let browserProc = null;
 
 	try {
 		// 读取 Markdown 内容
@@ -193,18 +206,35 @@ li{margin:4px 0}`;
 		// 完整 HTML
 		const fullHTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${themeCSS}</style></head><body>${htmlBody}</body></html>`;
 
-		// 启动 Puppeteer 渲染
-		const browser = await puppeteer.launch({
-			headless: true,
-			executablePath: BROWSER_PATH || undefined,
-			args: [
+		// 启动浏览器（手动 spawn + WebSocket 连接，兼容性更好）
+		const wsUrl = await new Promise((resolve, reject) => {
+			browserProc = spawn(BROWSER_PATH || "msedge", [
+				"--headless",
 				"--no-sandbox",
-				"--disable-setuid-sandbox",
 				"--disable-gpu",
 				"--disable-dev-shm-usage",
 				"--disable-extensions",
-			],
+				"--remote-debugging-port=0",
+			], { stdio: ["ignore", "ignore", "pipe"] });
+
+			let stderr = "";
+			browserProc.stderr.on("data", (chunk) => {
+				stderr += chunk.toString();
+				const match = stderr.match(/ws:\/\/[^\s]+/);
+				if (match) {
+					resolve(match[0]);
+				}
+			});
+			browserProc.on("error", reject);
+			browserProc.on("close", (code) => {
+				if (code && code !== 0) {
+					reject(new Error(`浏览器进程退出，代码 ${code}`));
+				}
+			});
+			setTimeout(() => reject(new Error("浏览器启动超时")), 10000);
 		});
+
+		const browser = await puppeteer.connect({ browserWSEndpoint: wsUrl });
 		const page = await browser.newPage();
 		await page.setViewport({ width: clampedWidth, height: 800 });
 		await page.setContent(fullHTML, { waitUntil: "networkidle0" });
@@ -239,6 +269,10 @@ li{margin:4px 0}`;
 		}
 		res.status(500).json({ error: "转换失败，请检查输入内容或稍后重试" });
 	} finally {
+		// 清理浏览器进程
+		if (browserProc && !browserProc.killed) {
+			try { browserProc.kill(); } catch {}
+		}
 		// 清理上传的临时文件
 		if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
 			fs.unlinkSync(uploadedFilePath);
@@ -263,7 +297,7 @@ app.get("/download/:filename", (req, res) => {
 // 启动时检查最新版本
 async function checkUpdate() {
 	await fetchLatestVersion();
-	if (latestVersion && latestVersion !== CURRENT_VERSION) {
+	if (latestVersion && compareVersions(latestVersion, CURRENT_VERSION) > 0) {
 		console.log(`\n  ⚠ 发现新版本: v${latestVersion} (当前: v${CURRENT_VERSION})`);
 		console.log(`  下载: ${updateUrl || `https://github.com/${REPO}/releases/latest`}`);
 	}
