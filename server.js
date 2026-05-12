@@ -11,10 +11,17 @@ const PORT = 3000;
 // pkg 打包后 __dirname 指向虚拟快照（只读），可写目录需用 process.cwd()
 const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
-// 版本信息
-const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf-8"));
-const CURRENT_VERSION = pkg.version;
+// 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
+let CURRENT_VERSION = "1.0.6";
+try {
+	const pkgPath = path.join(WORK_DIR, "package.json");
+	if (fs.existsSync(pkgPath)) {
+		CURRENT_VERSION = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).version;
+	}
+} catch {
+	// 打包环境无 package.json 时使用硬编码版本
+}
 
 // 自动检测系统 Chromium 浏览器路径（Chrome / Edge）
 function findBrowserPath() {
