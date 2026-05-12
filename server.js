@@ -13,7 +13,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.0.6";
+let CURRENT_VERSION = "1.0.7";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {
@@ -195,10 +195,15 @@ li{margin:4px 0}`;
 
 		// 启动 Puppeteer 渲染
 		const browser = await puppeteer.launch({
-			headless: "new",
+			headless: true,
 			executablePath: BROWSER_PATH || undefined,
-			// Windows 本地环境需要禁用沙箱，否则 Puppeteer 启动报错
-			args: ["--no-sandbox", "--disable-setuid-sandbox"],
+			args: [
+				"--no-sandbox",
+				"--disable-setuid-sandbox",
+				"--disable-gpu",
+				"--disable-dev-shm-usage",
+				"--disable-extensions",
+			],
 		});
 		const page = await browser.newPage();
 		await page.setViewport({ width: clampedWidth, height: 800 });
@@ -228,7 +233,10 @@ li{margin:4px 0}`;
 		// 返回保存结果（displayName 用于前端展示，filename 用于下载）
 		res.json({ success: true, filename, displayName: baseName });
 	} catch (err) {
-		console.error("转换失败:", err);
+		console.error("转换失败:", err.message);
+		if (err.message.includes("Could not find browser") || err.message.includes("closed unexpectedly")) {
+			console.error("浏览器路径:", BROWSER_PATH || "(使用默认路径)");
+		}
 		res.status(500).json({ error: "转换失败，请检查输入内容或稍后重试" });
 	} finally {
 		// 清理上传的临时文件
