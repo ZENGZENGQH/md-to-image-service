@@ -2,7 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const { marked } = require("marked");
 const puppeteer = require("puppeteer-core");
-const { spawn } = require("child_process");
+const { spawn, exec } = require("child_process");
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
@@ -15,7 +15,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.1.1";
+let CURRENT_VERSION = "1.1.2";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {
@@ -42,13 +42,13 @@ function findBrowserPath() {
 }
 const BROWSER_PATH = findBrowserPath();
 
-// 确保 uploads 和 output 目录存在
+// 确保 output 目录存在
 ["output"].forEach((dir) => {
 	const dirPath = path.join(WORK_DIR, dir);
 	if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 });
 
-// multer 配置：文件暂存至 uploads/，仅允许 md/txt 文件，限制 20MB
+// multer 配置：临时文件存至系统 temp 目录，仅允许 md/txt 文件，限制 20MB
 const upload = multer({
 	dest: require("os").tmpdir(),
 	limits: { fileSize: 20 * 1024 * 1024 },
@@ -112,7 +112,7 @@ app.get("/api/version", (_req, res) => {
 // 版本过旧拦截中间件：旧版本禁止使用核心功能
 app.use((req, res, next) => {
 	// 仅拦截业务接口，放行版本检测和静态资源
-	if (req.path === "/api/version" || !req.path.startsWith("/api/") && !req.path.startsWith("/convert") && !req.path.startsWith("/download")) {
+	if (req.path === "/api/version" || (!req.path.startsWith("/api/") && !req.path.startsWith("/convert") && !req.path.startsWith("/download"))) {
 		return next();
 	}
 	if (latestVersion && compareVersions(latestVersion, CURRENT_VERSION) > 0) {
@@ -272,7 +272,7 @@ li{margin:4px 0}`;
 		const savePath = path.join(saveDir, filename);
 		fs.writeFileSync(savePath, screenshot);
 
-		// 返回保存结果（displayName 用于前端展示，filename 用于下载）
+		// 返回保存结果
 		res.json({ success: true, filename, displayName: filename });
 	} catch (err) {
 		console.error("转换失败:", err.message);
@@ -329,5 +329,5 @@ app.listen(PORT, "127.0.0.1", () => {
 	console.log();
 	checkUpdate();
 	// 自动打开浏览器
-	require("child_process").exec(`start ${url}`);
+	exec(`start ${url}`);
 });
