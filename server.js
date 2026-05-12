@@ -47,7 +47,7 @@ const upload = multer({
 });
 
 // 静态资源
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(WORK_DIR, "public")));
 app.use(express.json({ limit: "10mb" }));
 
 // 提交转换请求
