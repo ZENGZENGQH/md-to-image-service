@@ -3,6 +3,7 @@ const multer = require("multer");
 const { marked } = require("marked");
 const puppeteer = require("puppeteer-core");
 const { spawn } = require("child_process");
+const http = require("http");
 const path = require("path");
 const fs = require("fs");
 
@@ -14,7 +15,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.0.8";
+let CURRENT_VERSION = "1.0.9";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {
@@ -206,35 +207,44 @@ li{margin:4px 0}`;
 		// 完整 HTML
 		const fullHTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${themeCSS}</style></head><body>${htmlBody}</body></html>`;
 
-		// 启动浏览器（手动 spawn + WebSocket 连接，兼容性更好）
-		const wsUrl = await new Promise((resolve, reject) => {
-			browserProc = spawn(BROWSER_PATH || "msedge", [
-				"--headless",
-				"--no-sandbox",
-				"--disable-gpu",
-				"--disable-dev-shm-usage",
-				"--disable-extensions",
-				"--remote-debugging-port=0",
-			], { stdio: ["ignore", "ignore", "pipe"] });
+		// 启动浏览器渲染截图（手动 spawn 兼容 Edge 141+）
+		const debugPort = 19000 + Math.floor(Math.random() * 1000);
+		const tmpProfile = path.join(require("os").tmpdir(), "md-to-img-" + debugPort);
+		browserProc = spawn(BROWSER_PATH || "msedge", [
+			"--headless=new",
+			"--no-sandbox",
+			"--disable-gpu",
+			"--disable-dev-shm-usage",
+			"--remote-allow-origins=*",
+			"--remote-debugging-port=" + debugPort,
+			"--user-data-dir=" + tmpProfile,
+			"about:blank",
+		], { stdio: ["ignore", "ignore", "ignore"] });
 
-			let stderr = "";
-			browserProc.stderr.on("data", (chunk) => {
-				stderr += chunk.toString();
-				const match = stderr.match(/ws:\/\/[^\s]+/);
-				if (match) {
-					resolve(match[0]);
-				}
-			});
-			browserProc.on("error", reject);
-			browserProc.on("close", (code) => {
-				if (code && code !== 0) {
-					reject(new Error(`浏览器进程退出，代码 ${code}`));
-				}
-			});
-			setTimeout(() => reject(new Error("浏览器启动超时")), 10000);
+		// 等待调试端口就绪
+		await new Promise((resolve, reject) => {
+			let tries = 0;
+			const check = () => {
+				http.get("http://127.0.0.1:" + debugPort + "/json/version", (res) => {
+					res.resume();
+					resolve();
+				}).on("error", () => {
+					if (++tries > 20) return reject(new Error("浏览器启动超时"));
+					setTimeout(check, 500);
+				});
+			};
+			setTimeout(check, 500);
 		});
 
-		const browser = await puppeteer.connect({ browserWSEndpoint: wsUrl });
+		const versionResp = await new Promise((resolve, reject) => {
+			http.get("http://127.0.0.1:" + debugPort + "/json/version", (res) => {
+				let data = "";
+				res.on("data", (c) => (data += c));
+				res.on("end", () => resolve(JSON.parse(data)));
+			}).on("error", reject);
+		});
+
+		const browser = await puppeteer.connect({ browserWSEndpoint: versionResp.webSocketDebuggerUrl });
 		const page = await browser.newPage();
 		await page.setViewport({ width: clampedWidth, height: 800 });
 		await page.setContent(fullHTML, { waitUntil: "networkidle0" });
@@ -249,6 +259,7 @@ li{margin:4px 0}`;
 			omitBackground: false,
 		});
 		await browser.close();
+		if (browserProc && !browserProc.killed) browserProc.kill();
 
 		// 保存到 output 文件夹
 		const saveDir = path.join(WORK_DIR, "output");
@@ -269,7 +280,6 @@ li{margin:4px 0}`;
 		}
 		res.status(500).json({ error: "转换失败，请检查输入内容或稍后重试" });
 	} finally {
-		// 清理浏览器进程
 		if (browserProc && !browserProc.killed) {
 			try { browserProc.kill(); } catch {}
 		}
@@ -307,7 +317,8 @@ async function checkUpdate() {
 setInterval(fetchLatestVersion, 30 * 60 * 1000).unref();
 
 app.listen(PORT, "127.0.0.1", () => {
-	console.log(`\n  MD 转图片服务已启动: http://localhost:${PORT}`);
+	const url = `http://localhost:${PORT}`;
+	console.log(`\n  MD 转图片服务已启动: ${url}`);
 	console.log(`  当前版本: v${CURRENT_VERSION}`);
 	if (BROWSER_PATH) {
 		console.log(`  浏览器: ${BROWSER_PATH}`);
@@ -316,4 +327,6 @@ app.listen(PORT, "127.0.0.1", () => {
 	}
 	console.log();
 	checkUpdate();
+	// 自动打开浏览器
+	require("child_process").exec(`start ${url}`);
 });
