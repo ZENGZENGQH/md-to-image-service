@@ -538,7 +538,17 @@
 						throw new Error(data.error || "转换失败");
 					}
 
-					showToast("已保存: " + data.filename, "success");
+					// 显示下载链接
+					const downloadUrl = "/download/" + data.filename;
+					const displayLabel = data.displayName || data.filename;
+					toast.innerHTML =
+						'已保存: ' + displayLabel +
+						'　<a href="' + downloadUrl + '" download style="color:#60a5fa;text-decoration:underline;" id="toastDownload">点击下载</a>';
+					toast.className = "status-toast show success";
+					clearTimeout(toastTimer);
+					toastTimer = setTimeout(() => {
+						toast.classList.remove("show");
+					}, 10000);
 				} catch (err) {
 					showToast(err.message, "error");
 				} finally {

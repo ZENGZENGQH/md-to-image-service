@@ -8,6 +8,9 @@ const fs = require("fs");
 const app = express();
 const PORT = 3000;
 
+// pkg 打包后 __dirname 指向虚拟快照（只读），可写目录需用 process.cwd()
+const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
+
 // 自动检测系统 Chromium 浏览器路径（Chrome / Edge）
 function findBrowserPath() {
 	const candidates = [
@@ -27,13 +30,13 @@ const BROWSER_PATH = findBrowserPath();
 
 // 确保 uploads 和 output 目录存在
 ["uploads", "output"].forEach((dir) => {
-	const dirPath = path.join(__dirname, dir);
+	const dirPath = path.join(WORK_DIR, dir);
 	if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 });
 
 // multer 配置：文件暂存至 uploads/，仅允许 md/txt 文件
 const upload = multer({
-	dest: path.join(__dirname, "uploads"),
+	dest: path.join(WORK_DIR, "uploads"),
 	fileFilter: (_req, file, cb) => {
 		if (/\.(md|markdown|txt)$/i.test(file.originalname)) {
 			cb(null, true);
@@ -150,18 +153,17 @@ li{margin:4px 0}`;
 		await browser.close();
 
 		// 保存到 output 文件夹
-		const saveDir = path.join(__dirname, "output");
+		const saveDir = path.join(WORK_DIR, "output");
 
-		// 文件名：时间_名称
+		// 文件名：时间戳（纯 ASCII，避免 Windows 编码问题）
 		const now = new Date();
-		const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}-${String(now.getSeconds()).padStart(2, "0")}`;
-		const safeName = baseName.replace(/[\\/:*?"<>|]/g, "_").replace(/\.\./g, "_");
-		const filename = `${timestamp}_${safeName}.png`;
+		const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+		const filename = `${timestamp}.png`;
 		const savePath = path.join(saveDir, filename);
 		fs.writeFileSync(savePath, screenshot);
 
-		// 返回保存结果
-		res.json({ success: true, filename });
+		// 返回保存结果（displayName 用于前端展示，filename 用于下载）
+		res.json({ success: true, filename, displayName: baseName });
 	} catch (err) {
 		console.error("转换失败:", err);
 		res.status(500).json({ error: `转换失败: ${err.message}` });
@@ -171,6 +173,15 @@ li{margin:4px 0}`;
 			fs.unlinkSync(uploadedFilePath);
 		}
 	}
+});
+
+// 下载生成的图片
+app.get("/download/:filename", (req, res) => {
+	const filePath = path.join(WORK_DIR, "output", req.params.filename);
+	if (!fs.existsSync(filePath)) {
+		return res.status(404).json({ error: "文件不存在" });
+	}
+	res.download(filePath);
 });
 
 app.listen(PORT, "127.0.0.1", () => {
