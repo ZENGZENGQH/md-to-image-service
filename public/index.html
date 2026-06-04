@@ -404,6 +404,196 @@
 			.update-card .download-btn:hover {
 				opacity: 0.9;
 			}
+
+			/* ===== 水印配置面板 ===== */
+			.watermark-wrapper {
+				position: relative;
+			}
+
+			.watermark-panel {
+				display: none;
+				position: absolute;
+				top: calc(100% + 8px);
+				right: 0;
+				width: 300px;
+				background: #fff;
+				border: 1px solid #e5e7eb;
+				border-radius: 12px;
+				box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+				z-index: 50;
+				padding: 20px;
+			}
+
+			.watermark-panel.show {
+				display: block;
+			}
+
+			.watermark-panel h3 {
+				font-size: 15px;
+				font-weight: 600;
+				color: #111827;
+				margin-bottom: 16px;
+			}
+
+			.wm-field {
+				margin-bottom: 14px;
+			}
+
+			.wm-field label {
+				display: block;
+				font-size: 13px;
+				font-weight: 500;
+				color: #374151;
+				margin-bottom: 6px;
+			}
+
+			.wm-field input[type="text"] {
+				width: 100%;
+				height: 36px;
+				border: 1px solid #e5e7eb;
+				border-radius: 8px;
+				padding: 0 12px;
+				font-size: 14px;
+				color: #111827;
+				outline: none;
+				transition: border-color 0.15s;
+			}
+
+			.wm-field input[type="text"]:focus {
+				border-color: #111827;
+			}
+
+			.wm-field input[type="text"]::placeholder {
+				color: #d1d5db;
+			}
+
+			.wm-slider-row {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+
+			.wm-slider-row input[type="range"] {
+				flex: 1;
+				height: 4px;
+				-webkit-appearance: none;
+				appearance: none;
+				background: #e5e7eb;
+				border-radius: 2px;
+				outline: none;
+			}
+
+			.wm-slider-row input[type="range"]::-webkit-slider-thumb {
+				-webkit-appearance: none;
+				width: 16px;
+				height: 16px;
+				border-radius: 50%;
+				background: #111827;
+				cursor: pointer;
+			}
+
+			.wm-slider-val {
+				font-size: 13px;
+				color: #6b7280;
+				min-width: 36px;
+				text-align: right;
+				font-variant-numeric: tabular-nums;
+			}
+
+			.wm-color-row {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+
+			.wm-color-row input[type="color"] {
+				width: 36px;
+				height: 36px;
+				border: 1px solid #e5e7eb;
+				border-radius: 8px;
+				padding: 2px;
+				cursor: pointer;
+				background: #fff;
+			}
+
+			.wm-color-auto {
+				font-size: 13px;
+				color: #6b7280;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				cursor: pointer;
+			}
+
+			.wm-color-auto input[type="checkbox"] {
+				accent-color: #111827;
+			}
+
+			.wm-enable-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin-bottom: 16px;
+				padding-bottom: 14px;
+				border-bottom: 1px solid #f3f4f6;
+			}
+
+			.wm-enable-row label {
+				font-size: 14px;
+				font-weight: 500;
+				color: #111827;
+			}
+
+			.wm-toggle {
+				position: relative;
+				width: 44px;
+				height: 24px;
+				cursor: pointer;
+			}
+
+			.wm-toggle input {
+				opacity: 0;
+				width: 0;
+				height: 0;
+			}
+
+			.wm-toggle .slider {
+				position: absolute;
+				inset: 0;
+				background: #d1d5db;
+				border-radius: 12px;
+				transition: background 0.2s;
+			}
+
+			.wm-toggle .slider::before {
+				content: "";
+				position: absolute;
+				width: 18px;
+				height: 18px;
+				left: 3px;
+				top: 3px;
+				background: #fff;
+				border-radius: 50%;
+				transition: transform 0.2s;
+			}
+
+			.wm-toggle input:checked + .slider {
+				background: #111827;
+			}
+
+			.wm-toggle input:checked + .slider::before {
+				transform: translateX(20px);
+			}
+
+			.toolbar-btn.has-watermark {
+				background: #f0fdf4;
+				border-color: #86efac;
+				color: #16a34a;
+			}
+
+			.toolbar-btn.has-watermark:hover {
+				background: #dcfce7;
+			}
 		</style>
 	</head>
 	<body>
@@ -449,6 +639,60 @@
 						</svg>
 						上传
 					</button>
+					<div class="watermark-wrapper">
+						<button class="toolbar-btn" id="btnWatermark">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+								<path d="M8 12l2 2 4-4"/>
+							</svg>
+							水印
+						</button>
+						<div class="watermark-panel" id="watermarkPanel">
+							<h3>水印设置</h3>
+							<div class="wm-enable-row">
+								<label>启用水印</label>
+								<label class="wm-toggle">
+									<input type="checkbox" id="wmEnabled" />
+									<span class="slider"></span>
+								</label>
+							</div>
+							<div class="wm-field">
+								<label>水印文字</label>
+								<input type="text" id="wmText" placeholder="请输入水印文字" maxlength="50" />
+							</div>
+							<div class="wm-field">
+								<label>透明度</label>
+								<div class="wm-slider-row">
+									<input type="range" id="wmOpacity" min="0.05" max="0.5" step="0.01" value="0.15" />
+									<span class="wm-slider-val" id="wmOpacityVal">0.15</span>
+								</div>
+							</div>
+							<div class="wm-field">
+								<label>字号</label>
+								<div class="wm-slider-row">
+									<input type="range" id="wmFontSize" min="12" max="48" step="1" value="24" />
+									<span class="wm-slider-val" id="wmFontSizeVal">24px</span>
+								</div>
+							</div>
+							<div class="wm-field">
+								<label>旋转角度</label>
+								<div class="wm-slider-row">
+									<input type="range" id="wmRotate" min="-90" max="90" step="1" value="-30" />
+									<span class="wm-slider-val" id="wmRotateVal">-30°</span>
+								</div>
+							</div>
+							<div class="wm-field">
+								<label>颜色</label>
+								<div class="wm-color-row">
+									<label class="wm-color-auto">
+										<input type="checkbox" id="wmColorAuto" checked />
+										跟随主题
+									</label>
+									<input type="color" id="wmColor" value="#000000" />
+								</div>
+							</div>
+						</div>
+					</div>
 					<button class="toolbar-btn primary" id="btnGenerate">
 						<svg
 							viewBox="0 0 24 24"
@@ -537,6 +781,120 @@
 			let toastTimer = null;
 			let uploadedFileName = "";
 
+			// ===== 水印配置 =====
+			const btnWatermark = document.getElementById("btnWatermark");
+			const watermarkPanel = document.getElementById("watermarkPanel");
+			const wmEnabled = document.getElementById("wmEnabled");
+			const wmText = document.getElementById("wmText");
+			const wmOpacity = document.getElementById("wmOpacity");
+			const wmOpacityVal = document.getElementById("wmOpacityVal");
+			const wmFontSize = document.getElementById("wmFontSize");
+			const wmFontSizeVal = document.getElementById("wmFontSizeVal");
+			const wmRotate = document.getElementById("wmRotate");
+			const wmRotateVal = document.getElementById("wmRotateVal");
+			const wmColorAuto = document.getElementById("wmColorAuto");
+			const wmColor = document.getElementById("wmColor");
+
+			// 水印默认配置
+			const wmDefaults = {
+				enabled: false,
+				text: "",
+				opacity: 0.15,
+				fontSize: 24,
+				rotate: -30,
+				colorAuto: true,
+				color: "#000000",
+			};
+
+			// 从 localStorage 加载水印配置
+			function loadWatermarkConfig() {
+				try {
+					const saved = JSON.parse(localStorage.getItem("wmConfig"));
+					if (saved) return { ...wmDefaults, ...saved };
+				} catch {}
+				return { ...wmDefaults };
+			}
+
+			// 保存水印配置到 localStorage
+			function saveWatermarkConfig() {
+				const config = {
+					enabled: wmEnabled.checked,
+					text: wmText.value,
+					opacity: parseFloat(wmOpacity.value),
+					fontSize: parseInt(wmFontSize.value),
+					rotate: parseInt(wmRotate.value),
+					colorAuto: wmColorAuto.checked,
+					color: wmColor.value,
+				};
+				localStorage.setItem("wmConfig", JSON.stringify(config));
+				updateWatermarkBtn();
+			}
+
+			// 初始化水印面板
+			function initWatermarkPanel() {
+				const config = loadWatermarkConfig();
+				wmEnabled.checked = config.enabled;
+				wmText.value = config.text;
+				wmOpacity.value = config.opacity;
+				wmOpacityVal.textContent = config.opacity;
+				wmFontSize.value = config.fontSize;
+				wmFontSizeVal.textContent = config.fontSize + "px";
+				wmRotate.value = config.rotate;
+				wmRotateVal.textContent = config.rotate + "°";
+				wmColorAuto.checked = config.colorAuto;
+				wmColor.value = config.color;
+				wmColor.disabled = config.colorAuto;
+				updateWatermarkBtn();
+			}
+
+			// 更新水印按钮样式
+			function updateWatermarkBtn() {
+				btnWatermark.classList.toggle("has-watermark", wmEnabled.checked && wmText.value.trim());
+			}
+
+			// 水印面板开关
+			btnWatermark.addEventListener("click", (e) => {
+				e.stopPropagation();
+				watermarkPanel.classList.toggle("show");
+			});
+
+			// 点击外部关闭面板
+			document.addEventListener("click", (e) => {
+				if (!watermarkPanel.contains(e.target) && e.target !== btnWatermark) {
+					watermarkPanel.classList.remove("show");
+				}
+			});
+
+			// 阻止面板内部点击冒泡
+			watermarkPanel.addEventListener("click", (e) => e.stopPropagation());
+
+			// 滑块实时显示
+			wmOpacity.addEventListener("input", () => {
+				wmOpacityVal.textContent = wmOpacity.value;
+				saveWatermarkConfig();
+			});
+			wmFontSize.addEventListener("input", () => {
+				wmFontSizeVal.textContent = wmFontSize.value + "px";
+				saveWatermarkConfig();
+			});
+			wmRotate.addEventListener("input", () => {
+				wmRotateVal.textContent = wmRotate.value + "°";
+				saveWatermarkConfig();
+			});
+
+			// 颜色自动/自定义切换
+			wmColorAuto.addEventListener("change", () => {
+				wmColor.disabled = wmColorAuto.checked;
+				saveWatermarkConfig();
+			});
+			wmColor.addEventListener("input", saveWatermarkConfig);
+
+			// 其他输入变化
+			wmEnabled.addEventListener("change", saveWatermarkConfig);
+			wmText.addEventListener("input", saveWatermarkConfig);
+
+			initWatermarkPanel();
+
 			// ===== 模式切换 =====
 			function setMode(m) {
 				mode = m;
@@ -623,6 +981,17 @@
 					formData.append("theme", "light");
 					formData.append("width", "800");
 					formData.append("name", name);
+
+					// 水印参数
+					if (wmEnabled.checked && wmText.value.trim()) {
+						formData.append("watermarkText", wmText.value.trim());
+						formData.append("watermarkOpacity", wmOpacity.value);
+						formData.append("watermarkFontSize", wmFontSize.value);
+						formData.append("watermarkRotate", wmRotate.value);
+						if (!wmColorAuto.checked) {
+							formData.append("watermarkColor", wmColor.value);
+						}
+					}
 
 					const res = await fetch("/convert", {
 						method: "POST",

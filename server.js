@@ -128,7 +128,7 @@ app.use((req, res, next) => {
 
 // 提交转换请求
 app.post("/convert", upload.single("file"), async (req, res) => {
-	const { text, theme, width, name } = req.body;
+	const { text, theme, width, name, watermarkText, watermarkOpacity, watermarkFontSize, watermarkRotate, watermarkColor } = req.body;
 	const file = req.file;
 	let mdContent = "";
 	let uploadedFilePath = null;
@@ -204,8 +204,32 @@ img{max-width:100%;border-radius:8px}
 ul,ol{padding-left:2em}
 li{margin:4px 0}`;
 
+		// 水印覆盖层
+		let watermarkHTML = "";
+		if (watermarkText && watermarkText.trim()) {
+			const wmText = watermarkText.trim();
+			const wmOpacity = Math.max(0.05, Math.min(0.5, parseFloat(watermarkOpacity) || 0.15));
+			const wmFontSize = Math.max(12, Math.min(48, parseInt(watermarkFontSize) || 24));
+			const wmRotate = Math.max(-90, Math.min(90, parseInt(watermarkRotate) || -30));
+			// 默认颜色跟随主题
+			const wmColor = watermarkColor || (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)");
+			// 行间距为字号的 3 倍，确保纵向铺满
+			const lineHeight = wmFontSize * 3;
+			// 每行重复足够多次以铺满宽度（考虑旋转后的可视宽度）
+			const repeatCount = Math.ceil((clampedWidth * 2.5) / (wmText.length * wmFontSize * 0.6));
+			const repeatedText = Array(repeatCount).fill(wmText).join("    ");
+
+			// 生成多行水印（上下铺满，多出部分用 overflow 裁剪）
+			const rows = [];
+			for (let i = -10; i < 80; i++) {
+				rows.push(`<div style="height:${lineHeight}px;line-height:${lineHeight}px;white-space:nowrap;font-size:${wmFontSize}px;color:${wmColor};transform:rotate(${wmRotate}deg);transform-origin:left center">${repeatedText}</div>`);
+			}
+
+			watermarkHTML = `<div style="position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:9999;opacity:${wmOpacity}">${rows.join("")}</div>`;
+		}
+
 		// 完整 HTML
-		const fullHTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${themeCSS}</style></head><body>${htmlBody}</body></html>`;
+		const fullHTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${themeCSS}</style></head><body>${htmlBody}${watermarkHTML}</body></html>`;
 
 		// 启动浏览器渲染截图（手动 spawn 兼容 Edge 141+）
 		const debugPort = 19000 + Math.floor(Math.random() * 1000);
