@@ -934,7 +934,7 @@
 				const rotate = Math.max(-90, Math.min(90, parseInt(wmRotate.value) || -30));
 				const isDark = document.documentElement.getAttribute("data-theme") === "dark";
 				const color = wmColorAuto.checked
-					? (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)")
+					? (isDark ? "#FFFFFF" : "#000000")
 					: wmColor.value;
 
 				const lineHeight = fontSize * 3;

@@ -15,7 +15,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.2.2";
+let CURRENT_VERSION = "1.2.3";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {
@@ -212,7 +212,7 @@ li{margin:4px 0}`;
 			const wmFontSize = Math.max(12, Math.min(48, parseInt(watermarkFontSize) || 24));
 			const wmRotate = Math.max(-90, Math.min(90, parseInt(watermarkRotate) || -30));
 			// 默认颜色跟随主题
-			const wmColor = watermarkColor || (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)");
+			const wmColor = watermarkColor || (isDark ? "#FFFFFF" : "#000000");
 			// 行间距为字号的 3 倍，确保纵向铺满
 			const lineHeight = wmFontSize * 3;
 			// 每行重复足够多次以铺满宽度（考虑旋转后的可视宽度）
