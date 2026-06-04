@@ -15,7 +15,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.1.2";
+let CURRENT_VERSION = "1.2.1";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {

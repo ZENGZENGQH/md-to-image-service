@@ -37,6 +37,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release
           Copy-Item "dist/md-to-image-service-${{ steps.version.outputs.VERSION }}-win-x64.exe" release/
+          Copy-Item package.json release/
           Copy-Item -Recurse public/ release/public/
           Compress-Archive -Path release/* -DestinationPath "dist/md-to-image-service-${{ steps.version.outputs.VERSION }}-win-x64.zip"
 
