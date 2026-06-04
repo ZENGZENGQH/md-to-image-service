@@ -191,6 +191,7 @@
 				font-size: 15px;
 				line-height: 1.8;
 				color: #111827;
+				position: relative;
 			}
 
 			/* ===== 预览区 Markdown 渲染样式 ===== */
@@ -872,26 +873,30 @@
 			wmOpacity.addEventListener("input", () => {
 				wmOpacityVal.textContent = wmOpacity.value;
 				saveWatermarkConfig();
+				renderPreviewWatermark();
 			});
 			wmFontSize.addEventListener("input", () => {
 				wmFontSizeVal.textContent = wmFontSize.value + "px";
 				saveWatermarkConfig();
+				renderPreviewWatermark();
 			});
 			wmRotate.addEventListener("input", () => {
 				wmRotateVal.textContent = wmRotate.value + "°";
 				saveWatermarkConfig();
+				renderPreviewWatermark();
 			});
 
 			// 颜色自动/自定义切换
 			wmColorAuto.addEventListener("change", () => {
 				wmColor.disabled = wmColorAuto.checked;
 				saveWatermarkConfig();
+				renderPreviewWatermark();
 			});
-			wmColor.addEventListener("input", saveWatermarkConfig);
+			wmColor.addEventListener("input", () => { saveWatermarkConfig(); renderPreviewWatermark(); });
 
 			// 其他输入变化
-			wmEnabled.addEventListener("change", saveWatermarkConfig);
-			wmText.addEventListener("input", saveWatermarkConfig);
+			wmEnabled.addEventListener("change", () => { saveWatermarkConfig(); renderPreviewWatermark(); });
+			wmText.addEventListener("input", () => { saveWatermarkConfig(); renderPreviewWatermark(); });
 
 			initWatermarkPanel();
 
@@ -915,6 +920,40 @@
 			// ===== 实时预览 =====
 			let previewTimer = null;
 
+			// 渲染预览区水印覆盖层
+			function renderPreviewWatermark() {
+				// 移除已有水印
+				const old = document.getElementById("previewWmOverlay");
+				if (old) old.remove();
+
+				if (!wmEnabled.checked || !wmText.value.trim()) return;
+
+				const text = wmText.value.trim();
+				const opacity = Math.max(0.05, Math.min(0.5, parseFloat(wmOpacity.value) || 0.15));
+				const fontSize = Math.max(12, Math.min(48, parseInt(wmFontSize.value) || 24));
+				const rotate = Math.max(-90, Math.min(90, parseInt(wmRotate.value) || -30));
+				const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+				const color = wmColorAuto.checked
+					? (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)")
+					: wmColor.value;
+
+				const lineHeight = fontSize * 3;
+				const containerWidth = previewArea.clientWidth || 800;
+				const repeatCount = Math.ceil((containerWidth * 2.5) / (text.length * fontSize * 0.6));
+				const repeatedText = Array(repeatCount).fill(text).join("    ");
+
+				const rows = [];
+				for (let i = -10; i < 80; i++) {
+					rows.push(`<div style="height:${lineHeight}px;line-height:${lineHeight}px;white-space:nowrap;font-size:${fontSize}px;color:${color};transform:rotate(${rotate}deg);transform-origin:left center">${repeatedText}</div>`);
+				}
+
+				const overlay = document.createElement("div");
+				overlay.id = "previewWmOverlay";
+				overlay.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:10;opacity:" + opacity;
+				overlay.innerHTML = rows.join("");
+				previewArea.appendChild(overlay);
+			}
+
 			function updatePreview() {
 				const md = mdEditor.value;
 				if (md.trim()) {
@@ -923,6 +962,7 @@
 					previewArea.innerHTML =
 						'<p class="preview-empty">预览区域 — 输入 Markdown 后实时渲染</p>';
 				}
+				renderPreviewWatermark();
 			}
 
 			mdEditor.addEventListener("input", () => {

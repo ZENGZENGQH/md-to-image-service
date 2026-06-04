@@ -15,7 +15,7 @@ const WORK_DIR = typeof process.pkg !== "undefined" ? process.cwd() : __dirname;
 
 // 版本信息（优先从 WORK_DIR 读取 package.json，打包环境兜底硬编码）
 const REPO = "ZENGZENGQH/md-to-image-service";
-let CURRENT_VERSION = "1.2.1";
+let CURRENT_VERSION = "1.2.2";
 try {
 	const pkgPath = path.join(WORK_DIR, "package.json");
 	if (fs.existsSync(pkgPath)) {
@@ -171,7 +171,7 @@ app.post("/convert", upload.single("file"), async (req, res) => {
 		// 主题样式
 		const isDark = theme === "dark";
 		const themeCSS = isDark
-			? `body{background:#1A1A1A;color:#E5E7EB;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;padding:32px 40px;max-width:${clampedWidth}px;word-wrap:break-word}
+			? `body{background:#1A1A1A;color:#E5E7EB;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;padding:32px 40px;max-width:${clampedWidth}px;word-wrap:break-word;position:relative}
 h1,h2,h3,h4,h5,h6{color:#F3F4F6;border-bottom:1px solid #374151;padding-bottom:8px}
 h1{font-size:2em}h2{font-size:1.5em}h3{font-size:1.25em}
 a{color:#60A5FA;text-decoration:none}
@@ -187,7 +187,7 @@ hr{border:none;border-top:1px solid #374151;margin:24px 0}
 img{max-width:100%;border-radius:8px}
 ul,ol{padding-left:2em}
 li{margin:4px 0}`
-			: `body{background:#FFFFFF;color:#24292E;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;padding:32px 40px;max-width:${clampedWidth}px;word-wrap:break-word}
+			: `body{background:#FFFFFF;color:#24292E;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;padding:32px 40px;max-width:${clampedWidth}px;word-wrap:break-word;position:relative}
 h1,h2,h3,h4,h5,h6{color:#1F2328;border-bottom:1px solid #D1D9E0B3;padding-bottom:8px}
 h1{font-size:2em}h2{font-size:1.5em}h3{font-size:1.25em}
 a{color:#0969DA;text-decoration:none}
@@ -225,7 +225,7 @@ li{margin:4px 0}`;
 				rows.push(`<div style="height:${lineHeight}px;line-height:${lineHeight}px;white-space:nowrap;font-size:${wmFontSize}px;color:${wmColor};transform:rotate(${wmRotate}deg);transform-origin:left center">${repeatedText}</div>`);
 			}
 
-			watermarkHTML = `<div style="position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:9999;opacity:${wmOpacity}">${rows.join("")}</div>`;
+			watermarkHTML = `<div id="wm-overlay" style="position:absolute;top:0;left:0;width:100%;overflow:hidden;pointer-events:none;z-index:9999;opacity:${wmOpacity}">${rows.join("")}</div>`;
 		}
 
 		// 完整 HTML
@@ -275,6 +275,12 @@ li{margin:4px 0}`;
 
 		// 获取实际内容高度
 		const bodyHeight = await page.evaluate(() => document.body.scrollHeight);
+
+		// 水印层高度设为页面全高，确保长图全覆盖
+		await page.evaluate((h) => {
+			const overlay = document.getElementById("wm-overlay");
+			if (overlay) overlay.style.height = h + "px";
+		}, bodyHeight);
 
 		// 截图为 PNG
 		const screenshot = await page.screenshot({
